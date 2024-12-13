@@ -1,0 +1,30 @@
+Blackjack Trainer
+
+Member: Keaton Harvey and Sam Skanse
+No, NOT opting into the MOD
+
+Description: We propose the development of an interactive iOS app called “Blackjack Trainer” that helps users improve their blackjack skills using machine learning. The app will simulate real blackjack games and provide real-time advice based on optimal strategies. The user will be allowed to configure the settings of the game such as if the dealer will hit or stand on soft 17. It will be an educational tool designed to teach players about probability, strategy, and decision-making in blackjack.
+
+Constraints:
+
+1.
+Intuitive user interface with a table layout with cards, chips, and controls. Touch gestures for actions like “Hit,” “Stand,” “Double Down,” and “Split.” Include animations for card dealing. Provide immediate feedback on user actions.
+
+2.
+Integrate ML model to analyze the current game state and provide recommendations on the best action with an explanation of why (including probabilities based on the number of decks being used). Model will perhaps use a tree traversal algorithm based on game state or might use pure deep reinforcement learning.
+
+3.
+The app will have the correct game mechanics with accurate blackjack rules with configurable settings such as dealer behavior on soft 17. Additionally, there will be a practice mode where the user can have help from the ML model and a challenge mode where the user plays without any ML assistance allowed.
+
+4.
+The app will track metrics like win rate, correct decision % in challenge mode, average bet size, and total “money” won/lost over time. This information will be saved locally on the device.
+
+5.
+Objective Goal, Optional: As a NOT required goal, we may decide to add functionality to use audio processing to be able to speak your desired move “Hit,” “Stand,” “Double Down,” or “Split.” along with audio for shuffling/dealing the cards.
+
+
+Elements of Labs:
+
+User Interface
+SpriteKit
+MLaaS
