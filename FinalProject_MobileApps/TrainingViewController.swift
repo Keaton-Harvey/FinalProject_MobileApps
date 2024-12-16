@@ -9,8 +9,6 @@ class TrainingViewController: UIViewController {
     @IBOutlet weak var doubleDownButton: UIButton!
     @IBOutlet weak var splitButton: UIButton!
     @IBOutlet weak var dealButton: UIButton!
-
-    // Assume we have hitButton and standButton outlets:
     @IBOutlet weak var hitButton: UIButton!
     @IBOutlet weak var standButton: UIButton!
 
@@ -24,7 +22,6 @@ class TrainingViewController: UIViewController {
         hintButton.isHidden = true
         doubleDownButton.isHidden = true
         splitButton.isHidden = true
-        // Hide hit/stand until hand dealt
         hitButton.isHidden = true
         standButton.isHidden = true
 
@@ -57,10 +54,12 @@ class TrainingViewController: UIViewController {
     }
 
     @objc func showActions() {
-        // After initial deal
+        // Called after initial deal completed
         hitButton.isHidden = false
         standButton.isHidden = false
         updateActionButtonsForGameState()
+
+        handleBetweenHandsTransitionIfNeeded()
     }
 
     func updateActionButtonsForGameState() {
@@ -73,7 +72,7 @@ class TrainingViewController: UIViewController {
         game.startNewRound()
         scene.startGame()
         hintButton.isHidden = false
-        // Actions (hit/stand) will appear after initial deal completes and ShowActions notification
+        // After initial deal finishes, showActions will be called by scene notification
     }
 
     @IBAction func hintButtonTapped(_ sender: Any) {
@@ -82,9 +81,9 @@ class TrainingViewController: UIViewController {
             return
         }
 
-        let playerTotal = Double(game.playerHands[0].total)
+        let playerTotal = Double(game.currentHand.total)
         let dealerCardValue = Double(game.dealerHand.cards[1].rank == .ace ? 11 : game.dealerHand.cards[1].rank.value)
-        let isSoft = game.playerHands[0].isSoft ? 1.0 : 0.0
+        let isSoft = game.currentHand.isSoft ? 1.0 : 0.0
         let numDecks = Double(game.numberOfDecks)
         let dealerHitsSoft = Double(game.dealerHitsSoft17)
         let canSplit = game.playerCanSplit() ? 1.0 : 0.0
@@ -110,12 +109,13 @@ class TrainingViewController: UIViewController {
             let recommendedAction = actionMap[Int(actionCode)]
 
             let hintMessage = """
-            Bust if you hit: \(String(format: "%.2f", bustProb * 100))%
-            Improve hand if you hit: \(String(format: "%.2f", improveProb * 100))%
-            Dealer's hidden card beats your stand: \(String(format: "%.2f", dealerBeatProb * 100))%
+            Recommended Action: \(recommendedAction)
+            Bust Probability if Hit: \(String(format: "%.2f", bustProb * 100))%
+            Improve Probability if Hit: \(String(format: "%.2f", improveProb * 100))%
+            Dealer Beats If Stand: \(String(format: "%.2f", dealerBeatProb * 100))%
             """
 
-            let alert = UIAlertController(title: "Hint: \(recommendedAction)", message: hintMessage, preferredStyle: .alert)
+            let alert = UIAlertController(title: "Hint", message: hintMessage, preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             present(alert, animated: true)
         } else {
@@ -125,42 +125,90 @@ class TrainingViewController: UIViewController {
 
     @IBAction func hitButtonTapped(_ sender: Any) {
         game.playerHit()
-        scene.playerHitUpdate()
-        updateActionButtonsForGameState()
+        // Show the updated hand (new card)
+        scene.playerHitUpdate { [weak self] in
+            guard let self = self else { return }
+            // After UI updated
+            if self.game.currentHand.isBusted {
+                self.scene.showBustedMessage()
+                self.checkRoundStatus() // round ended
+            } else {
+                self.updateActionButtonsForGameState()
+            }
+        }
     }
 
     @IBAction func standButtonTapped(_ sender: Any) {
         game.playerStand()
-        if game.roundFinished() {
-            scene.dealerDoneUpdate()
-        } else {
-            scene.playerHitUpdate()
+        // Transition if needed
+        handleBetweenHandsTransitionIfNeeded()
+        // After transitions, check round status
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.checkRoundStatus()
         }
-        updateActionButtonsForGameState()
     }
 
     @IBAction func doubleDownTapped(_ sender: Any) {
-        if game.currentHandCanDoubleDown() {
-            game.playerDoubleDown()
-            scene.playerHitUpdate()
-            if game.roundFinished() {
-                scene.dealerDoneUpdate()
+        game.playerDoubleDown()
+        scene.playerHitUpdate { [weak self] in
+            guard let self = self else { return }
+            if self.game.currentHand.isBusted {
+                // Show bust after card displayed
+                self.scene.showBustedMessage()
+                self.checkRoundStatus()
             } else {
-                scene.playerHitUpdate()
+                self.handleBetweenHandsTransitionIfNeeded()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.checkRoundStatus()
+                }
             }
-        } else {
-            print("Cannot double down now.")
         }
-        updateActionButtonsForGameState()
     }
 
     @IBAction func splitTapped(_ sender: Any) {
         if game.playerCanSplit() {
             game.playerSplit()
-            scene.playerHitUpdate()
+            // Reposition player hands to reflect the split before dealing the next card:
+            scene.repositionPlayerHands { [weak self] in
+                guard let self = self else { return }
+                if self.game.playerHands.count == 2 && self.game.currentHand.cards.count == 1 {
+                    if let _ = self.game.dealCardToCurrentHand() {
+                        self.scene.playerHitUpdate {
+                            self.updateActionButtonsForGameState()
+                        }
+                    } else {
+                        self.updateActionButtonsForGameState()
+                    }
+                } else {
+                    self.updateActionButtonsForGameState()
+                }
+            }
         } else {
             print("Cannot split.")
         }
-        updateActionButtonsForGameState()
+    }
+
+    func checkRoundStatus() {
+        if game.roundFinished() {
+            scene.dealerDoneUpdate()
+        } else {
+            updateActionButtonsForGameState()
+        }
+    }
+
+    func handleBetweenHandsTransitionIfNeeded() {
+        let handCount = game.playerHands.count
+        if handCount > 1 {
+            // If current hand needs its second card:
+            let currentHand = game.currentHand
+            if currentHand.cards.count == 1 {
+                if let _ = game.dealCardToCurrentHand() {
+                    scene.playerHitUpdate {
+                        // After dealing second card to next hand
+                        self.updateActionButtonsForGameState()
+                    }
+                }
+            }
+        }
     }
 }

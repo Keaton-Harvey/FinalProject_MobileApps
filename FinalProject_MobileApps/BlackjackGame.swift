@@ -140,15 +140,15 @@ enum GameOutcome {
 
 class BlackjackGame {
     private var deck: Deck
-    private(set) var playerHands: [Hand] = []
-    private(set) var dealerHand: Hand = Hand()
+    private var currentHandIndex = 0
+    private var roundInProgress = false
+    private var hasSplit = false
 
     let numberOfDecks: Int
     let dealerHitsSoft17: Int
 
-    private var currentHandIndex = 0
-    private var roundInProgress = false
-    private var hasSplit = false
+    private(set) var playerHands: [Hand] = []
+    private(set) var dealerHand: Hand = Hand()
 
     init(numberOfDecks: Int = 1, dealerHitsSoft17: Int = 0) {
         self.numberOfDecks = numberOfDecks
@@ -178,7 +178,7 @@ class BlackjackGame {
             dealerHand.addCard(d2)
         }
 
-        if isBlackjack(hand: playerHands[0]) || isBlackjack(hand: dealerHand) {
+        if isBlackjack(hand: dealerHand) || isBlackjack(hand: playerHands[0]) {
             roundInProgress = false
         }
     }
@@ -188,23 +188,36 @@ class BlackjackGame {
     }
 
     private var currentPlayerHand: Hand {
-        if currentHandIndex < playerHands.count {
-            return playerHands[currentHandIndex]
-        } else {
-            return playerHands.last!
-        }
+        return playerHands[currentHandIndex]
+    }
+
+    var currentHand: Hand {
+        return currentPlayerHand
+    }
+
+    var currentHandIndexPublic: Int {
+        return currentHandIndex
+    }
+
+    func currentHandCanDoubleDown() -> Bool {
+        return roundInProgress && !currentPlayerHand.hasActed && currentPlayerHand.cards.count == 2
+    }
+
+    func currentHandCanHit() -> Bool {
+        return roundInProgress && !currentPlayerHand.isBusted
+    }
+
+    func currentHandCanStand() -> Bool {
+        return roundInProgress
     }
 
     func playerHit() {
         guard roundInProgress else { return }
-        guard !currentPlayerHand.isBusted else { return }
-
         if let card = deck.dealCard() {
             currentPlayerHand.addCard(card)
-            currentPlayerHand.hasActed = true
-            if currentPlayerHand.isBusted {
-                playerStand()
-            }
+        }
+        if currentPlayerHand.isBusted {
+            roundInProgress = false
         }
     }
 
@@ -227,7 +240,18 @@ class BlackjackGame {
             currentPlayerHand.addCard(card)
         }
         currentPlayerHand.hasActed = true
-        playerStand()
+
+        if currentPlayerHand.isBusted {
+            roundInProgress = false
+            return
+        }
+
+        if currentHandIndex < playerHands.count - 1 {
+            currentHandIndex += 1
+        } else {
+            dealerPlay()
+            roundInProgress = false
+        }
     }
 
     func playerCanSplit() -> Bool {
@@ -256,11 +280,6 @@ class BlackjackGame {
         playerHands[currentHandIndex].hasActed = false
 
         playerHands.insert(newHand, at: currentHandIndex+1)
-
-        if let newCardForFirstHand = deck.dealCard(), let newCardForSecondHand = deck.dealCard() {
-            playerHands[currentHandIndex].addCard(newCardForFirstHand)
-            playerHands[currentHandIndex+1].addCard(newCardForSecondHand)
-        }
     }
 
     private func dealerPlay() {
@@ -284,9 +303,9 @@ class BlackjackGame {
     }
 
     func outcomes() -> [GameOutcome] {
-        var results: [GameOutcome] = []
         let dealerTotal = dealerHand.total
         let dealerBust = dealerHand.isBusted
+        var results: [GameOutcome] = []
 
         for hand in playerHands {
             if isBlackjack(hand: hand) && !isBlackjack(hand: dealerHand) {
@@ -308,7 +327,6 @@ class BlackjackGame {
                 }
             }
         }
-
         return results
     }
 
@@ -316,29 +334,28 @@ class BlackjackGame {
         return !roundInProgress
     }
 
-    func currentHandCanDoubleDown() -> Bool {
-        return roundInProgress && !currentPlayerHand.hasActed && currentPlayerHand.cards.count == 2
-    }
-
-    func currentHandCanHit() -> Bool {
-        return roundInProgress && !currentPlayerHand.isBusted
-    }
-
-    func currentHandCanStand() -> Bool {
-        return roundInProgress
+    func dealCardToCurrentHand() -> Card? {
+        guard roundInProgress else { return nil }
+        if let card = deck.dealCard() {
+            currentPlayerHand.addCard(card)
+            if currentPlayerHand.isBusted {
+                roundInProgress = false
+            }
+            return card
+        }
+        return nil
     }
 
     var playerTotal: Int {
-        return playerHands[currentHandIndex].total
+        return currentPlayerHand.total
     }
 
     var visibleDealerTotal: Int {
-        let dCards = dealerHand.cards
-        if dCards.count >= 2 {
-            let card = dCards[1]
+        if dealerHand.cards.count >= 2 {
+            let card = dealerHand.cards[1]
             return card.rank == .ace ? 11 : card.rank.value
         }
-        return 0
+        return dealerHand.total
     }
 
     var dealerTotal: Int {

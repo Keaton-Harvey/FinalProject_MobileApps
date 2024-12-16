@@ -167,8 +167,9 @@ class AppEntryViewController: UIViewController {
             self.popupView = popupView
 
             // Add the title label
-            let titleLabel = createTitleLabel(withText: "Statistics")
+        let titleLabel = createTitleLabel(withText: "Statistics")
             titleLabel.frame = CGRect(x: 10, y: 10, width: popupWidth - 20, height: 30)
+            titleLabel.textColor = .white
             popupView.addSubview(titleLabel)
 
             // Add the stat labels with proper spacing
@@ -186,6 +187,7 @@ class AppEntryViewController: UIViewController {
             let labelHeight: CGFloat = 30
             for label in labels {
                 label.frame = CGRect(x: 10, y: yOffset, width: popupWidth - 20, height: labelHeight)
+                label.textColor = .white
                 popupView.addSubview(label)
                 yOffset += labelHeight + 10 // Add spacing between labels
             }
