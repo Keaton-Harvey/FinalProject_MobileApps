@@ -5,6 +5,12 @@
 //  Created by Keaton Harvey on 12/15/24.
 //
 
+
+/*
+ Sets up all the game scene logic with cards, decks, and using logic from blackjack
+ game to make it more fluid
+ */
+
 import SpriteKit
 
 class GameScene: SKScene {
@@ -159,7 +165,6 @@ class GameScene: SKScene {
         repositionDealer(completion: completion)
     }
 
-    // Updated to have a completion closure
     func playerHitUpdate(completion: @escaping ()->Void) {
         let currentHandIndex = game.currentHandIndexPublic
         let playerCards = game.playerHands[currentHandIndex].cards
@@ -423,7 +428,6 @@ class GameScene: SKScene {
         let allPlayerCards = playerHandsNodes.flatMap { $0 }
         let allCards = allPlayerCards + dealerCardNodes
 
-        // If there are no cards to animate (shouldn't happen normally), just clean up:
         if allCards.isEmpty {
             for lbl in self.playerTotalLabels {
                 lbl.removeFromParent()

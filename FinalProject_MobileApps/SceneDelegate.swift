@@ -2,7 +2,7 @@
 //  SceneDelegate.swift
 //  FinalProject_MobileApps
 //
-//  Created by Keaton Harvey on 12/9/24.
+//  Created by Keaton Harvey and Sam Skanse
 //
 
 import UIKit

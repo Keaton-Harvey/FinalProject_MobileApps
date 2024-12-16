@@ -2,8 +2,18 @@
 //  AppEntryViewController.swift
 //  FinalProject_MobileApps
 //
-//  Created by Keaton Harvey on 12/14/24.
+//  Created by Keaton Harvey and Sam Skanse
 //
+
+/*
+ This is the viewController where you enter the app and has a lot of different functions such as:
+ - stats
+ - game settings
+ - total chips
+ - practice mode and challenge mode navigation buttons
+ - some other aesthetic features
+ 
+ */
 
 import UIKit
 
@@ -130,12 +140,10 @@ class AppEntryViewController: UIViewController {
         titleLabel.textColor = .white
         popupView.addSubview(titleLabel)
 
-        // Load arrays
         let winArray = (UserDefaults.standard.array(forKey: "winArray") as? [Int]) ?? []
         let decisionArray = (UserDefaults.standard.array(forKey: "decisionArray") as? [Int]) ?? []
         let betArray = (UserDefaults.standard.array(forKey: "betArray") as? [Int]) ?? []
 
-        // Compute stats
         let winRateText: String
         if winArray.count > 0 {
             let winRate = (Double(winArray.reduce(0, +)) / Double(winArray.count)) * 100.0

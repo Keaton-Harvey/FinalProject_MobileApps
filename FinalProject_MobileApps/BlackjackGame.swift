@@ -2,8 +2,14 @@
 //  BlackjackGame.swift
 //  FinalProject_MobileApps
 //
-//  Created by Keaton Harvey on 12/15/24.
+//  Created by Keaton Harvey and Sam Skanse
 //
+
+/*
+ This game sets up and has the logic to simulate a blackjack game. Everything here has the logic
+ to simulate a blackjack game.
+ */
+ 
 
 
 import Foundation
@@ -225,27 +231,19 @@ class BlackjackGame {
             currentPlayerHand.addCard(card)
         }
 
-        // Check if the player busted after hitting
         if currentPlayerHand.isBusted {
             if hasSplit {
-                // If we have multiple hands (split)
                 if currentHandIndex < playerHands.count - 1 {
-                    // Move to the next hand instead of ending the round
                     currentHandIndex += 1
                 } else {
-                    // Last hand has busted, dealer plays and round ends
                     dealerPlay()
                     roundInProgress = false
                 }
             } else {
-                // No split, so bust ends the entire round immediately
                 roundInProgress = false
             }
             return
         }
-
-        // If not busted, nothing else special happens here.
-        // The player can continue hitting or choose another action.
     }
 
     func playerStand() {
@@ -267,27 +265,20 @@ class BlackjackGame {
             currentPlayerHand.addCard(card)
         }
         currentPlayerHand.hasActed = true
-
-        // Check if the player busted
+        
         if currentPlayerHand.isBusted {
             if hasSplit {
-                // If we have split hands
                 if currentHandIndex < playerHands.count - 1 {
-                    // Move to the next hand instead of ending the round
                     currentHandIndex += 1
                 } else {
-                    // This was the last hand, so dealer plays and end the round
                     dealerPlay()
                     roundInProgress = false
                 }
             } else {
-                // No split, round ends immediately on bust
                 roundInProgress = false
             }
             return
         }
-
-        // If not busted, proceed as normal
         if currentHandIndex < playerHands.count - 1 {
             currentHandIndex += 1
         } else {

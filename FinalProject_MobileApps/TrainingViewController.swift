@@ -2,8 +2,15 @@
 //  TrainingViewController.swift
 //  FinalProject_MobileApps
 //
-//  Created by Keaton Harvey on 12/14/24.
+//  Created by Keaton Harvey and Sam Skanse
 //
+
+/*
+ This is for our training mode which uses a lot of the functionality from gamescene and
+ blackjackgame with some other logic in order to make it run like a smooth blackjack game at a casino.
+ Also has implementation of a hint button where we use the BlackJackPipeline where we send it input for
+ our ML model to return. 
+ */
 
 import UIKit
 import SpriteKit
@@ -26,7 +33,6 @@ class TrainingViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Deal Button
         dealButton.setTitle("", for: .normal)  // Remove any title
         dealButton.setImage(UIImage(named: "deal_btn"), for: .normal)
         dealButton.backgroundColor = .clear
@@ -35,7 +41,6 @@ class TrainingViewController: UIViewController {
         dealButton.contentVerticalAlignment = .fill
         dealButton.imageView?.contentMode = .scaleAspectFit
         
-        // Hit Button
         hitButton.setTitle("", for: .normal)
         hitButton.setImage(UIImage(named: "hit_btn"), for: .normal)
         hitButton.backgroundColor = .clear
@@ -44,7 +49,6 @@ class TrainingViewController: UIViewController {
         hitButton.contentVerticalAlignment = .fill
         hitButton.imageView?.contentMode = .scaleAspectFit
         
-        // Stand Button
         standButton.setTitle("", for: .normal)
         standButton.setImage(UIImage(named: "stand_btn"), for: .normal)
         standButton.backgroundColor = .clear
@@ -53,7 +57,6 @@ class TrainingViewController: UIViewController {
         standButton.contentVerticalAlignment = .fill
         standButton.imageView?.contentMode = .scaleAspectFit
         
-        // Split Button
         splitButton.setTitle("", for: .normal)
         splitButton.setImage(UIImage(named: "split_btn"), for: .normal)
         splitButton.backgroundColor = .clear
@@ -62,7 +65,6 @@ class TrainingViewController: UIViewController {
         splitButton.contentVerticalAlignment = .fill
         splitButton.imageView?.contentMode = .scaleAspectFit
         
-        // Double Down Button
         doubleDownButton.setTitle("", for: .normal)
         doubleDownButton.setImage(UIImage(named: "double_down_btn"), for: .normal)
         doubleDownButton.backgroundColor = .clear
@@ -70,8 +72,7 @@ class TrainingViewController: UIViewController {
         doubleDownButton.contentHorizontalAlignment = .fill
         doubleDownButton.contentVerticalAlignment = .fill
         doubleDownButton.imageView?.contentMode = .scaleAspectFit
-        
-
+    
         hintButton.isHidden = true
         doubleDownButton.isHidden = true
         splitButton.isHidden = true
@@ -107,14 +108,12 @@ class TrainingViewController: UIViewController {
     }
 
     @objc func showActions() {
-        // If dealer has 21, auto-stand (end round)
         if game.dealerTotal == 21 {
             game.playerStand()
             moveToNextHandOrFinish()
             return
         }
 
-        // If player got a blackjack immediately, end round and pay out
         if game.playerHands[0].cards.count == 2 && game.isBlackjack(hand: game.playerHands[0]) {
             checkRoundStatus()
             return
@@ -251,10 +250,8 @@ class TrainingViewController: UIViewController {
 
     func moveToNextHandOrFinish() {
         if game.currentHandIndexPublic < game.playerHands.count - 1 {
-            // Move to next hand
             game.moveToNextHandIfPossible()
 
-            // If next hand only has 1 card, deal second card
             if game.currentHand.cards.count == 1 {
                 if let _ = game.dealCardToCurrentHand() {
                     scene.playerHitUpdate {
@@ -265,7 +262,6 @@ class TrainingViewController: UIViewController {
                 }
             }
 
-            // If we are on the second hand (index 1) and it has 2 cards, force one hit:
             if game.currentHandIndexPublic == 1 && game.currentHand.cards.count == 2 {
                 game.playerHit()
                 scene.playerHitUpdate {
@@ -275,11 +271,9 @@ class TrainingViewController: UIViewController {
                 return
             }
 
-            // If no special conditions, just check status now
             updateActionButtonsForGameState()
             checkRoundStatus()
         } else {
-            // No more hands, check round status
             checkRoundStatus()
         }
     }

@@ -2,8 +2,15 @@
 //  ChallengeViewController.swift
 //  FinalProject_MobileApps
 //
-//  Created by Keaton Harvey on 12/14/24.
+//  Created by Keaton Harvey and Sam Skanse
 //
+
+/*
+ This is set up so the user can try challenge mode which uses a lot of the functionality from gamescene
+ and blackjackgame with some other logic to make it run a smooth blackjack game. Also has some extra
+ logic for chipping betting that is not present in training view controller. This also doesn't have a hint
+ button. 
+ */
 
 import UIKit
 import SpriteKit
@@ -45,7 +52,6 @@ class ChallengeViewController: UIViewController {
 
     var bettingOpen = true
 
-    // Arrays for stats
     var winArray: [Int] = []
     var decisionArray: [Int] = []
     var betArray: [Int] = []
@@ -66,7 +72,6 @@ class ChallengeViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Deal Button
         dealButton.setTitle("", for: .normal)  // Remove any title
         dealButton.setImage(UIImage(named: "deal_btn"), for: .normal)
         dealButton.backgroundColor = .clear
@@ -75,7 +80,6 @@ class ChallengeViewController: UIViewController {
         dealButton.contentVerticalAlignment = .fill
         dealButton.imageView?.contentMode = .scaleAspectFit
         
-        // Hit Button
         hitButton.setTitle("", for: .normal)
         hitButton.setImage(UIImage(named: "hit_btn"), for: .normal)
         hitButton.backgroundColor = .clear
@@ -84,7 +88,6 @@ class ChallengeViewController: UIViewController {
         hitButton.contentVerticalAlignment = .fill
         hitButton.imageView?.contentMode = .scaleAspectFit
         
-        // Stand Button
         standButton.setTitle("", for: .normal)
         standButton.setImage(UIImage(named: "stand_btn"), for: .normal)
         standButton.backgroundColor = .clear
@@ -93,7 +96,6 @@ class ChallengeViewController: UIViewController {
         standButton.contentVerticalAlignment = .fill
         standButton.imageView?.contentMode = .scaleAspectFit
         
-        // Split Button
         splitButton.setTitle("", for: .normal)
         splitButton.setImage(UIImage(named: "split_btn"), for: .normal)
         splitButton.backgroundColor = .clear
@@ -102,7 +104,6 @@ class ChallengeViewController: UIViewController {
         splitButton.contentVerticalAlignment = .fill
         splitButton.imageView?.contentMode = .scaleAspectFit
         
-        // Double Down Button
         doubleDownButton.setTitle("", for: .normal)
         doubleDownButton.setImage(UIImage(named: "double_down_btn"), for: .normal)
         doubleDownButton.backgroundColor = .clear
@@ -111,7 +112,6 @@ class ChallengeViewController: UIViewController {
         doubleDownButton.contentVerticalAlignment = .fill
         doubleDownButton.imageView?.contentMode = .scaleAspectFit
 
-        // Load arrays
         if let wArr = UserDefaults.standard.array(forKey: "winArray") as? [Int] {
             winArray = wArr
         }
@@ -264,16 +264,10 @@ class ChallengeViewController: UIViewController {
             return
         }
 
-        // ***** CHANGE START *****
-        // If player got a blackjack immediately, we should end round and pay out.
-        // Check if player's first hand is blackjack right after initial deal:
         if game.playerHands[0].cards.count == 2 && game.isBlackjack(hand: game.playerHands[0]) {
-            // Player has blackjack, round is basically over immediately
-            // Just run checkRoundStatus to do payout
             checkRoundStatus()
             return
         }
-        // ***** CHANGE END *****
 
         hitButton.isHidden = false
         standButton.isHidden = false
@@ -380,7 +374,7 @@ class ChallengeViewController: UIViewController {
     @IBAction func splitTapped(_ sender: Any) {
         guard !game.roundFinished(), !splitButton.isHidden else { return }
 
-        let userAction = 3 // Split
+        let userAction = 3
         checkDecisionCorrectness(userAction: userAction)
 
         if game.playerCanSplit() {
@@ -412,14 +406,12 @@ class ChallengeViewController: UIViewController {
     func moveToNextHandOrFinish() {
         if game.currentHandIndexPublic < game.playerHands.count - 1 {
             game.moveToNextHandIfPossible()
-
-            // If the game ended (e.g. because we busted and no more hands), just end:
+            
             if game.roundFinished() {
                 checkRoundStatus()
                 return
             }
 
-            // Existing forced hit logic for second hand
             if game.currentHandIndexPublic == 1 {
                 game.playerHit()
                 scene.playerHitUpdate {
