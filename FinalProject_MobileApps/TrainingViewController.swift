@@ -5,7 +5,6 @@
 //  Created by Keaton Harvey on 12/14/24.
 //
 
-
 import UIKit
 import SpriteKit
 import CoreML
@@ -62,7 +61,19 @@ class TrainingViewController: UIViewController {
     }
 
     @objc func showActions() {
-        // Called after initial deal completed
+        // If dealer has 21, auto-stand (end round)
+        if game.dealerTotal == 21 {
+            game.playerStand()
+            moveToNextHandOrFinish()
+            return
+        }
+
+        // If player got a blackjack immediately, end round and pay out
+        if game.playerHands[0].cards.count == 2 && game.isBlackjack(hand: game.playerHands[0]) {
+            checkRoundStatus()
+            return
+        }
+
         hitButton.isHidden = false
         standButton.isHidden = false
         updateActionButtonsForGameState()
@@ -80,7 +91,6 @@ class TrainingViewController: UIViewController {
         game.startNewRound()
         scene.startGame()
         hintButton.isHidden = false
-        // After initial deal finishes, showActions will be called by scene notification
     }
 
     @IBAction func hintButtonTapped(_ sender: Any) {
@@ -114,7 +124,12 @@ class TrainingViewController: UIViewController {
             let dealerBeatProb = prediction.IfStandOddsDealersSecondCardMakesThemBeatUs
 
             let actionMap = ["Hit","Stand","Double Down","Split"]
-            let recommendedAction = actionMap[Int(actionCode)]
+            var recommendedAction = actionMap[Int(actionCode)]
+            
+            if recommendedAction == "Double Down" && game.currentHand.cards.count > 2
+            {
+                recommendedAction = "Hit"
+            }
 
             let hintMessage = """
             Recommended Action: \(recommendedAction)
@@ -133,13 +148,12 @@ class TrainingViewController: UIViewController {
 
     @IBAction func hitButtonTapped(_ sender: Any) {
         game.playerHit()
-        // Show the updated hand (new card)
         scene.playerHitUpdate { [weak self] in
             guard let self = self else { return }
-            // After UI updated
             if self.game.currentHand.isBusted {
                 self.scene.showBustedMessage()
-                self.checkRoundStatus() // round ended
+                // After bust, move to next hand if any, else end round
+                self.moveToNextHandOrFinish()
             } else {
                 self.updateActionButtonsForGameState()
             }
@@ -148,12 +162,8 @@ class TrainingViewController: UIViewController {
 
     @IBAction func standButtonTapped(_ sender: Any) {
         game.playerStand()
-        // Transition if needed
-        handleBetweenHandsTransitionIfNeeded()
-        // After transitions, check round status
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.checkRoundStatus()
-        }
+        // After standing, go to next hand or finish
+        moveToNextHandOrFinish()
     }
 
     @IBAction func doubleDownTapped(_ sender: Any) {
@@ -161,14 +171,12 @@ class TrainingViewController: UIViewController {
         scene.playerHitUpdate { [weak self] in
             guard let self = self else { return }
             if self.game.currentHand.isBusted {
-                // Show bust after card displayed
                 self.scene.showBustedMessage()
-                self.checkRoundStatus()
+                // After bust, move to next hand if any, else end round
+                self.moveToNextHandOrFinish()
             } else {
-                self.handleBetweenHandsTransitionIfNeeded()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    self.checkRoundStatus()
-                }
+                // After double down, move to next hand or finish
+                self.moveToNextHandOrFinish()
             }
         }
     }
@@ -176,7 +184,6 @@ class TrainingViewController: UIViewController {
     @IBAction func splitTapped(_ sender: Any) {
         if game.playerCanSplit() {
             game.playerSplit()
-            // Reposition player hands to reflect the split before dealing the next card:
             scene.repositionPlayerHands { [weak self] in
                 guard let self = self else { return }
                 if self.game.playerHands.count == 2 && self.game.currentHand.cards.count == 1 {
@@ -196,6 +203,41 @@ class TrainingViewController: UIViewController {
         }
     }
 
+    func moveToNextHandOrFinish() {
+        if game.currentHandIndexPublic < game.playerHands.count - 1 {
+            // Move to next hand
+            game.moveToNextHandIfPossible()
+
+            // If next hand only has 1 card, deal second card
+            if game.currentHand.cards.count == 1 {
+                if let _ = game.dealCardToCurrentHand() {
+                    scene.playerHitUpdate {
+                        self.updateActionButtonsForGameState()
+                        self.checkRoundStatus()
+                    }
+                    return
+                }
+            }
+
+            // If we are on the second hand (index 1) and it has 2 cards, force one hit:
+            if game.currentHandIndexPublic == 1 && game.currentHand.cards.count == 2 {
+                game.playerHit()
+                scene.playerHitUpdate {
+                    self.updateActionButtonsForGameState()
+                    self.checkRoundStatus()
+                }
+                return
+            }
+
+            // If no special conditions, just check status now
+            updateActionButtonsForGameState()
+            checkRoundStatus()
+        } else {
+            // No more hands, check round status
+            checkRoundStatus()
+        }
+    }
+
     func checkRoundStatus() {
         if game.roundFinished() {
             scene.dealerDoneUpdate()
@@ -207,12 +249,10 @@ class TrainingViewController: UIViewController {
     func handleBetweenHandsTransitionIfNeeded() {
         let handCount = game.playerHands.count
         if handCount > 1 {
-            // If current hand needs its second card:
             let currentHand = game.currentHand
             if currentHand.cards.count == 1 {
                 if let _ = game.dealCardToCurrentHand() {
                     scene.playerHitUpdate {
-                        // After dealing second card to next hand
                         self.updateActionButtonsForGameState()
                     }
                 }

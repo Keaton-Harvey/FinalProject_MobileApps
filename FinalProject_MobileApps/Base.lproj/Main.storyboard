@@ -371,7 +371,7 @@
                                 <state key="normal" title="Button"/>
                                 <buttonConfiguration key="configuration" style="filled" title="Deal"/>
                                 <connections>
-                                    <action selector="dealButtonTapped:" destination="3FB-Xk-BRB" eventType="touchUpInside" id="eki-0W-gwn"/>
+                                    <action selector="dealButtonTapped:" destination="3FB-Xk-BRB" eventType="touchUpInside" id="dZe-sG-7w1"/>
                                 </connections>
                             </button>
                         </subviews>
