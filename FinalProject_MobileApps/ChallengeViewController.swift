@@ -16,10 +16,7 @@ class ChallengeViewController: UIViewController {
     @IBOutlet weak var standButton: UIButton!
     @IBOutlet weak var doubleDownButton: UIButton!
     @IBOutlet weak var splitButton: UIButton!
-
-    // Changed: chipTrayView is now a UIScrollView to allow scrolling
     @IBOutlet weak var chipTrayView: UIScrollView!
-
     @IBOutlet weak var betAmountLabel: UILabel!
     @IBOutlet weak var balanceLabel: UILabel!
 
@@ -28,7 +25,6 @@ class ChallengeViewController: UIViewController {
 
     var chipValues = [1, 5, 10, 25, 100, 500, 1000, 5000]
     var chipButtons: [UIButton] = []
-    var handBets: [Int] = []
 
     var playerChips: Int {
         get { return UserDefaults.standard.integer(forKey: "chips") }
@@ -44,31 +40,28 @@ class ChallengeViewController: UIViewController {
         }
     }
 
-    // Stats
-    var winRate: Double {
-        get { return UserDefaults.standard.double(forKey: "winRate") }
-        set { UserDefaults.standard.set(newValue, forKey: "winRate") }
-    }
-    var totalBlackJacks: Int {
-        get { return UserDefaults.standard.integer(forKey: "totalBlackJacks") }
-        set { UserDefaults.standard.set(newValue, forKey: "totalBlackJacks") }
-    }
-    var decisionPercentage: Double {
-        get { return UserDefaults.standard.double(forKey: "decisionPercentage") }
-        set { UserDefaults.standard.set(newValue, forKey: "decisionPercentage") }
-    }
-    var averageBetSize: Double {
-        get { return UserDefaults.standard.double(forKey: "averageBetSize") }
-        set { UserDefaults.standard.set(newValue, forKey: "averageBetSize") }
-    }
+    var handBets: [Int] = []
+    var betChipsStack: [PlacedChip] = []
+
+    var bettingOpen = true
+
+    // Arrays to store stats over time
+    // Win: 1 for win, 0 for lose/push
+    // Decisions: 1 for correct, 0 for incorrect
+    // Bets: store each round's initial bet
+    var winArray: [Int] = []
+    var decisionArray: [Int] = []
+    var betArray: [Int] = []
+    
+    // Total money as a running total
     var totalMoney: Int {
         get { return UserDefaults.standard.integer(forKey: "totalMoney") }
         set { UserDefaults.standard.set(newValue, forKey: "totalMoney") }
     }
-    var reloads: Int {
-        get { return UserDefaults.standard.integer(forKey: "reloads") }
-        set { UserDefaults.standard.set(newValue, forKey: "reloads") }
-    }
+    
+    var totalBlackJacks = UserDefaults.standard.integer(forKey: "totalBlackJacks")
+
+    var pipelineModel: BlackJackPipeline?
 
     struct PlacedChip {
         let value: Int
@@ -76,14 +69,24 @@ class ChallengeViewController: UIViewController {
         let originalPosition: CGPoint
     }
 
-    var betChipsStack: [PlacedChip] = []
-
     override func viewDidLoad() {
         super.viewDidLoad()
 
+        // Load arrays from UserDefaults or start empty
+        if let wArr = UserDefaults.standard.array(forKey: "winArray") as? [Int] {
+            winArray = wArr
+        }
+        if let dArr = UserDefaults.standard.array(forKey: "decisionArray") as? [Int] {
+            decisionArray = dArr
+        }
+        if let bArr = UserDefaults.standard.array(forKey: "betArray") as? [Int] {
+            betArray = bArr
+        }
+
         if playerChips <= 0 {
             playerChips = 500
-            reloads += 1
+            let reloads = UserDefaults.standard.integer(forKey: "reloads")
+            UserDefaults.standard.set(reloads + 1, forKey: "reloads")
         }
 
         let chosenNumberOfDecks = UserDefaults.standard.integer(forKey: "numOfDecks")
@@ -111,10 +114,11 @@ class ChallengeViewController: UIViewController {
 
         updateBetAmountLabel()
         updateBalanceLabel()
+
+        pipelineModel = try? BlackJackPipeline(configuration: MLModelConfiguration())
     }
 
     func setupChipTray() {
-        // Arrange all chips horizontally in the scroll view
         let buttonSize: CGFloat = 80
         let spacing: CGFloat = 20
         var xOffset: CGFloat = spacing
@@ -137,13 +141,13 @@ class ChallengeViewController: UIViewController {
     }
 
     @objc func chipTapped(_ sender: UIButton) {
+        guard bettingOpen else { return }
         let chipIndex = sender.tag
         let chipValue = chipValues[chipIndex]
         if playerChips < chipValue {
             return
         }
 
-        // Convert chipButton frame to main view coordinates
         let chipButtonFrameInView = self.view.convert(sender.frame, from: self.chipTrayView)
         placeChipInPot(chipValue: chipValue, fromPosition: chipButtonFrameInView.center)
     }
@@ -167,6 +171,7 @@ class ChallengeViewController: UIViewController {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard bettingOpen else { return }
         guard let touch = touches.first else { return }
         let location = touch.location(in: self.view)
         let centerPoint = CGPoint(x: self.view.bounds.midX, y: self.view.bounds.midY)
@@ -177,9 +182,9 @@ class ChallengeViewController: UIViewController {
     }
 
     func removeLastChipFromPot() {
+        guard bettingOpen else { return }
         guard let lastChip = betChipsStack.popLast() else { return }
         let chipValue = lastChip.value
-
         currentBet -= chipValue
         playerChips += chipValue
 
@@ -220,65 +225,68 @@ class ChallengeViewController: UIViewController {
     }
 
     func updateActionButtonsForGameState() {
-        doubleDownButton.isHidden = !game.currentHandCanDoubleDown() || playerChips < currentBet
+        doubleDownButton.isHidden = !game.currentHandCanDoubleDown() || playerChips < currentBetForCurrentHand()
         splitButton.isHidden = !game.playerCanSplit()
     }
-    
-    func moveToNextHandOrFinish() {
-        // If current hand is done (busted or stand), move on:
-        if game.currentHandIndexPublic < game.playerHands.count - 1 {
-            // Move to next hand
-            game.moveToNextHandIfPossible()
-            // Deal second card if needed:
-            if self.game.currentHand.cards.count == 1 {
-                if let _ = self.game.dealCardToCurrentHand() {
-                    self.scene.playerHitUpdate {
-                        self.updateActionButtonsForGameState()
-                    }
-                }
-            }
-            self.updateActionButtonsForGameState()
-        } else {
-            // No more hands, dealer plays
-            checkRoundStatus()
+
+    func currentBetForCurrentHand() -> Int {
+        if game.currentHandIndexPublic < handBets.count {
+            return handBets[game.currentHandIndexPublic]
         }
+        return currentBet // fallback
     }
 
     @IBAction func dealButtonTapped(_ sender: Any) {
-        if currentBet <= 0 { return }
+        if currentBet <= 0 {
+            return
+        }
+        bettingOpen = false
         dealButton.isHidden = true
-        // Assign initial bets array
         handBets = [currentBet]
+
+        // Add this round's bet to betArray
+        betArray.append(currentBet)
+        UserDefaults.standard.set(betArray, forKey: "betArray")
+
         game.startNewRound()
         scene.startGame()
     }
 
     @IBAction func hitButtonTapped(_ sender: Any) {
-            game.playerHit()
-            scene.playerHitUpdate { [weak self] in
-                guard let self = self else { return }
-                if self.game.currentHand.isBusted {
-                    // Hand busts. Move to next hand if any:
-                    self.moveToNextHandOrFinish()
-                } else {
-                    self.updateActionButtonsForGameState()
-                }
+        let userAction = 0 // Hit
+        checkDecisionCorrectness(userAction: userAction)
+
+        game.playerHit()
+        scene.playerHitUpdate { [weak self] in
+            guard let self = self else { return }
+            if self.game.currentHand.isBusted {
+                self.moveToNextHandOrFinish()
+            } else {
+                self.updateActionButtonsForGameState()
             }
         }
+    }
 
     @IBAction func standButtonTapped(_ sender: Any) {
+        let userAction = 1 // Stand
+        checkDecisionCorrectness(userAction: userAction)
+
         game.playerStand()
         moveToNextHandOrFinish()
     }
 
     @IBAction func doubleDownTapped(_ sender: Any) {
-        if playerChips >= handBets[game.currentHandIndexPublic] {
-            playerChips -= handBets[game.currentHandIndexPublic]
+        let userAction = 2 // Double Down
+        checkDecisionCorrectness(userAction: userAction)
+
+        let extraBet = handBets[game.currentHandIndexPublic]
+        if playerChips >= extraBet {
+            playerChips -= extraBet
             handBets[game.currentHandIndexPublic] *= 2
         } else {
             return
         }
-        
+
         game.playerDoubleDown()
         scene.playerHitUpdate { [weak self] in
             guard let self = self else { return }
@@ -291,11 +299,23 @@ class ChallengeViewController: UIViewController {
     }
 
     @IBAction func splitTapped(_ sender: Any) {
+        let userAction = 3 // Split
+        checkDecisionCorrectness(userAction: userAction)
+
         if game.playerCanSplit() {
+            let originalBetForThisHand = handBets[game.currentHandIndexPublic]
+            if playerChips < originalBetForThisHand {
+                return
+            }
+            playerChips -= originalBetForThisHand
+            handBets.insert(originalBetForThisHand, at: game.currentHandIndexPublic+1)
+
             game.playerSplit()
             scene.repositionPlayerHands { [weak self] in
                 guard let self = self else { return }
-                if self.game.playerHands.count == 2 && self.game.currentHand.cards.count == 1 {
+                // Splitting creates an additional hand, we do not record anything special for win rate yet
+                // We'll do that after the round. Just move on.
+                if self.game.playerHands.count > 1 && self.game.currentHand.cards.count == 1 {
                     if let _ = self.game.dealCardToCurrentHand() {
                         self.scene.playerHitUpdate {
                             self.updateActionButtonsForGameState()
@@ -310,23 +330,67 @@ class ChallengeViewController: UIViewController {
         }
     }
 
-    func checkRoundStatus() {
-            if game.roundFinished() {
-                scene.dealerDoneUpdate()
-                let results = game.outcomes()
-                var netWinLoss = 0
-                for (i, outcome) in results.enumerated() {
-                    let betForThisHand = handBets[i]
-                    netWinLoss += applyOutcome(outcome: outcome, bet: betForThisHand)
+    func moveToNextHandOrFinish() {
+        if game.currentHandIndexPublic < game.playerHands.count - 1 {
+            game.moveToNextHandIfPossible()
+            if self.game.currentHand.cards.count == 1 {
+                if let _ = self.game.dealCardToCurrentHand() {
+                    self.scene.playerHitUpdate {
+                        self.updateActionButtonsForGameState()
+                    }
                 }
-                totalMoney += netWinLoss
-                currentBet = 0
-                handBets.removeAll()
-                // ... clear chips from pot etc.
-            } else {
-                updateActionButtonsForGameState()
             }
+            self.updateActionButtonsForGameState()
+        } else {
+            checkRoundStatus()
         }
+        updateChipsAvailability()
+    }
+
+    func checkRoundStatus() {
+        if game.roundFinished() {
+            scene.dealerDoneUpdate()
+            let results = game.outcomes()
+            var netWinLoss = 0
+            for outcome in results {
+                let betForThisHand = handBets.removeFirst()
+                let diff = applyOutcome(outcome: outcome, bet: betForThisHand)
+                netWinLoss += diff
+                // Win=1, Lose=0, Push=0 in winArray
+                if outcome == .playerWin || outcome == .playerBlackjack {
+                    winArray.append(1)
+                } else {
+                    // lose or push = 0
+                    winArray.append(0)
+                }
+                // Update totalBlackJacks if blackjack
+                if outcome == .playerBlackjack {
+                    totalBlackJacks += 1
+                    UserDefaults.standard.set(totalBlackJacks, forKey: "totalBlackJacks")
+                }
+            }
+
+            totalMoney += netWinLoss
+            UserDefaults.standard.set(totalMoney, forKey: "totalMoney")
+
+            // Save updated arrays
+            UserDefaults.standard.set(winArray, forKey: "winArray")
+            UserDefaults.standard.set(decisionArray, forKey: "decisionArray")
+            UserDefaults.standard.set(betArray, forKey: "betArray")
+
+            currentBet = 0
+
+            // Remove pot chips visually
+            for placed in betChipsStack {
+                placed.chipNode.removeFromSuperview()
+            }
+            betChipsStack.removeAll()
+
+            bettingOpen = true
+        } else {
+            updateActionButtonsForGameState()
+        }
+    }
 
     func applyOutcome(outcome: GameOutcome, bet: Int) -> Int {
         switch outcome {
@@ -353,11 +417,52 @@ class ChallengeViewController: UIViewController {
     }
 
     func updateBetAmountLabel() {
-        betAmountLabel.text = "Bet: $\(currentBet)"
+        betAmountLabel.text = "Bet: \(currentBet)"
     }
 
     func updateBalanceLabel() {
-        balanceLabel.text = "Balance: $\(playerChips)"
+        balanceLabel.text = "Balance: \(playerChips)"
+    }
+
+    // Check correctness of decision:
+    // userAction: 0=Hit,1=Stand,2=Double Down,3=Split
+    func checkDecisionCorrectness(userAction: Int) {
+        guard let model = pipelineModel else { return }
+
+        let playerHand = game.currentHand
+        let playerTotal = Double(playerHand.total)
+
+        let dealerUpValue: Double
+        if game.dealerHand.cards.count >= 2 {
+            let dCard = game.dealerHand.cards[1]
+            dealerUpValue = dCard.rank == .ace ? 11.0 : Double(dCard.rank.value)
+        } else {
+            dealerUpValue = Double(game.visibleDealerTotal)
+        }
+
+        let isSoft = playerHand.isSoft ? 1.0 : 0.0
+        let numDecks = Double(game.numberOfDecks)
+        let dealerHitsSoft = Double(game.dealerHitsSoft17)
+        let canSplit = game.playerCanSplit() ? 1.0 : 0.0
+        let pairRankEncoded = 0.0
+
+        let input = BlackJackPipelineInput(
+            player_total: playerTotal,
+            dealer_upcard: dealerUpValue,
+            is_soft: isSoft,
+            num_decks: numDecks,
+            dealer_hits_soft_17: dealerHitsSoft,
+            can_split: canSplit,
+            pair_rank_encoded: pairRankEncoded
+        )
+
+        if let prediction = try? model.prediction(input: input) {
+            let actionCode = prediction.action_code
+            // If user's chosen action matches model's recommended action:
+            let correct = (Int(actionCode) == userAction) ? 1 : 0
+            decisionArray.append(correct)
+            UserDefaults.standard.set(decisionArray, forKey: "decisionArray")
+        }
     }
 }
 

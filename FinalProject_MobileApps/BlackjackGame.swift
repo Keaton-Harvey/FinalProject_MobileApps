@@ -376,7 +376,6 @@ extension BlackjackGame {
         if currentHandIndexPublic < playerHands.count - 1 {
             currentHandIndex += 1
         } else {
-            // If no more hands, dealer will go:
             dealerPlay()
             roundInProgress = false
         }
