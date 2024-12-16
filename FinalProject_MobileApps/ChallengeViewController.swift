@@ -65,6 +65,51 @@ class ChallengeViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Deal Button
+        dealButton.setTitle("", for: .normal)  // Remove any title
+        dealButton.setImage(UIImage(named: "deal_btn"), for: .normal)
+        dealButton.backgroundColor = .clear
+        dealButton.configuration = nil
+        dealButton.contentHorizontalAlignment = .fill
+        dealButton.contentVerticalAlignment = .fill
+        dealButton.imageView?.contentMode = .scaleAspectFit
+        
+        // Hit Button
+        hitButton.setTitle("", for: .normal)
+        hitButton.setImage(UIImage(named: "hit_btn"), for: .normal)
+        hitButton.backgroundColor = .clear
+        hitButton.configuration = nil
+        hitButton.contentHorizontalAlignment = .fill
+        hitButton.contentVerticalAlignment = .fill
+        hitButton.imageView?.contentMode = .scaleAspectFit
+        
+        // Stand Button
+        standButton.setTitle("", for: .normal)
+        standButton.setImage(UIImage(named: "stand_btn"), for: .normal)
+        standButton.backgroundColor = .clear
+        standButton.configuration = nil
+        standButton.contentHorizontalAlignment = .fill
+        standButton.contentVerticalAlignment = .fill
+        standButton.imageView?.contentMode = .scaleAspectFit
+        
+        // Split Button
+        splitButton.setTitle("", for: .normal)
+        splitButton.setImage(UIImage(named: "split_btn"), for: .normal)
+        splitButton.backgroundColor = .clear
+        splitButton.configuration = nil
+        splitButton.contentHorizontalAlignment = .fill
+        splitButton.contentVerticalAlignment = .fill
+        splitButton.imageView?.contentMode = .scaleAspectFit
+        
+        // Double Down Button
+        doubleDownButton.setTitle("", for: .normal)
+        doubleDownButton.setImage(UIImage(named: "double_down_btn"), for: .normal)
+        doubleDownButton.backgroundColor = .clear
+        doubleDownButton.configuration = nil
+        doubleDownButton.contentHorizontalAlignment = .fill
+        doubleDownButton.contentVerticalAlignment = .fill
+        doubleDownButton.imageView?.contentMode = .scaleAspectFit
 
         // Load arrays
         if let wArr = UserDefaults.standard.array(forKey: "winArray") as? [Int] {
@@ -209,6 +254,7 @@ class ChallengeViewController: UIViewController {
         standButton.isHidden = true
         doubleDownButton.isHidden = true
         splitButton.isHidden = true
+        chipTrayView.isHidden = false
     }
 
     @objc func showActions() {
@@ -258,6 +304,7 @@ class ChallengeViewController: UIViewController {
 
         bettingOpen = false
         dealButton.isHidden = true
+        chipTrayView.isHidden = true
         handBets = [currentBet]
 
         betArray.append(currentBet)
