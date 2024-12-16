@@ -1,3 +1,10 @@
+//
+//  GameScene.swift
+//  FinalProject_MobileApps
+//
+//  Created by Keaton Harvey on 12/15/24.
+//
+
 import SpriteKit
 
 class GameScene: SKScene {

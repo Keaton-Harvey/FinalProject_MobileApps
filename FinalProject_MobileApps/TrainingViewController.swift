@@ -1,3 +1,11 @@
+//
+//  TrainingViewController.swift
+//  FinalProject_MobileApps
+//
+//  Created by Keaton Harvey on 12/14/24.
+//
+
+
 import UIKit
 import SpriteKit
 import CoreML

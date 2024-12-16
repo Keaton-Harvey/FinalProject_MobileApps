@@ -1,22 +1,47 @@
 //
-//  TrainingViewController.swift
+//  ChallengeViewController.swift
 //  FinalProject_MobileApps
 //
 //  Created by Keaton Harvey on 12/14/24.
 //
 
-
-//
-//  BlackjackGame.swift
-//  FinalProject_MobileApps
-//
-//  Created by Keaton Harvey on 12/15/24.
-//
+import UIKit
 
 
-//
-//  GameScene.swift
-//  FinalProject_MobileApps
-//
-//  Created by Keaton Harvey on 12/15/24.
-//
+
+
+
+I now want to implement my "challenge mode" in my ChallengeViewController.swift file. One difference in this mode is the user will not have access to the hint feature (remove it completely). Also, In this mode the user will be able to make bets. We have 8 chip options saved as chip_1, chip_5, chip_10, chip_25, chip_100, chip_500, chip_1000, and chip_5000. The user will tap on the chip to add it to their bet and it will be animated that a chip of that size is going into the middle of the screen. Only the most recently clicked chip should be shown on top and the user can tap the chips in the middle to remove/resize their bet. These chips should be displayed in a "tray" in the bottom that shows 4 chips at a time and has an arrow that can be clicked to go to the next 4 chips. Additionally, If the users balance (saved as "chips" in user defaults) is below the value of a chip it should be dimmed and not respond to being clicked. For example the user's balance is 250, then the 500, 1000, and 5000 chips should be dimmed. Additionally we will be tracking the users win rate, total blackjacks, correct decision %, average bet size, total money won / lost, and number of reloads. These will be saved in user defaults as "winRate" "totalBlackJacks" "decisionPercentage" "averageBetSize" "totalMoney" "reloads".
+
+
+Create my ChallengeViewController.swift file and also fix the logic of my BetManager.swift file which will be found below.
+
+
+BetManager.swift:
+
+class BetManager {
+    var playerChips: Int
+    var currentBet: Int
+    
+    init(startingChips: Int, initialBet: Int) {
+        self.playerChips = startingChips
+        self.currentBet = initialBet
+    }
+
+    func applyOutcome(_ outcome: GameOutcome) {
+        switch outcome {
+        case .playerBlackjack:
+            // pay 3:2
+            playerChips += Int(Double(currentBet) * 1.5)
+        case .playerWin:
+            // pay 1:1
+            playerChips += currentBet
+        case .playerLose:
+            // lose bet, nothing added
+            break
+        case .push:
+            // get bet back
+            break
+        }
+    }
+}
