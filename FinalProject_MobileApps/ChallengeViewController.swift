@@ -28,6 +28,7 @@ class ChallengeViewController: UIViewController {
 
     var chipValues = [1, 5, 10, 25, 100, 500, 1000, 5000]
     var chipButtons: [UIButton] = []
+    var handBets: [Int] = []
 
     var playerChips: Int {
         get { return UserDefaults.standard.integer(forKey: "chips") }
@@ -81,7 +82,7 @@ class ChallengeViewController: UIViewController {
         super.viewDidLoad()
 
         if playerChips <= 0 {
-            playerChips = 1000
+            playerChips = 500
             reloads += 1
         }
 
@@ -222,49 +223,69 @@ class ChallengeViewController: UIViewController {
         doubleDownButton.isHidden = !game.currentHandCanDoubleDown() || playerChips < currentBet
         splitButton.isHidden = !game.playerCanSplit()
     }
+    
+    func moveToNextHandOrFinish() {
+        // If current hand is done (busted or stand), move on:
+        if game.currentHandIndexPublic < game.playerHands.count - 1 {
+            // Move to next hand
+            game.moveToNextHandIfPossible()
+            // Deal second card if needed:
+            if self.game.currentHand.cards.count == 1 {
+                if let _ = self.game.dealCardToCurrentHand() {
+                    self.scene.playerHitUpdate {
+                        self.updateActionButtonsForGameState()
+                    }
+                }
+            }
+            self.updateActionButtonsForGameState()
+        } else {
+            // No more hands, dealer plays
+            checkRoundStatus()
+        }
+    }
 
     @IBAction func dealButtonTapped(_ sender: Any) {
-        if currentBet <= 0 {
-            return
-        }
+        if currentBet <= 0 { return }
         dealButton.isHidden = true
+        // Assign initial bets array
+        handBets = [currentBet]
         game.startNewRound()
         scene.startGame()
     }
 
     @IBAction func hitButtonTapped(_ sender: Any) {
-        game.playerHit()
-        scene.playerHitUpdate { [weak self] in
-            guard let self = self else { return }
-            if self.game.currentHand.isBusted {
-                self.scene.showBustedMessage()
-                self.checkRoundStatus()
-            } else {
-                self.updateActionButtonsForGameState()
+            game.playerHit()
+            scene.playerHitUpdate { [weak self] in
+                guard let self = self else { return }
+                if self.game.currentHand.isBusted {
+                    // Hand busts. Move to next hand if any:
+                    self.moveToNextHandOrFinish()
+                } else {
+                    self.updateActionButtonsForGameState()
+                }
             }
         }
-    }
 
     @IBAction func standButtonTapped(_ sender: Any) {
         game.playerStand()
-        checkRoundStatus()
+        moveToNextHandOrFinish()
     }
 
     @IBAction func doubleDownTapped(_ sender: Any) {
-        if playerChips >= currentBet {
-            playerChips -= currentBet
-            currentBet += currentBet
+        if playerChips >= handBets[game.currentHandIndexPublic] {
+            playerChips -= handBets[game.currentHandIndexPublic]
+            handBets[game.currentHandIndexPublic] *= 2
         } else {
             return
         }
+        
         game.playerDoubleDown()
         scene.playerHitUpdate { [weak self] in
             guard let self = self else { return }
             if self.game.currentHand.isBusted {
-                self.scene.showBustedMessage()
-                self.checkRoundStatus()
+                self.moveToNextHandOrFinish()
             } else {
-                self.checkRoundStatus()
+                self.moveToNextHandOrFinish()
             }
         }
     }
@@ -290,48 +311,39 @@ class ChallengeViewController: UIViewController {
     }
 
     func checkRoundStatus() {
-        if game.roundFinished() {
-            scene.dealerDoneUpdate()
-            let results = game.outcomes()
-            var netWinLoss = 0
-            for outcome in results {
-                let diff = applyOutcome(outcome: outcome)
-                netWinLoss += diff
-                if outcome == .playerBlackjack {
-                    totalBlackJacks += 1
+            if game.roundFinished() {
+                scene.dealerDoneUpdate()
+                let results = game.outcomes()
+                var netWinLoss = 0
+                for (i, outcome) in results.enumerated() {
+                    let betForThisHand = handBets[i]
+                    netWinLoss += applyOutcome(outcome: outcome, bet: betForThisHand)
                 }
+                totalMoney += netWinLoss
+                currentBet = 0
+                handBets.removeAll()
+                // ... clear chips from pot etc.
+            } else {
+                updateActionButtonsForGameState()
             }
-            totalMoney += netWinLoss
-            currentBet = 0
-
-            for placed in betChipsStack {
-                placed.chipNode.removeFromSuperview()
-            }
-            betChipsStack.removeAll()
-
-            updateChipsAvailability()
-        } else {
-            updateActionButtonsForGameState()
         }
-    }
 
-    func applyOutcome(outcome: GameOutcome) -> Int {
-        let B = currentBet / (game.playerHands.count == 0 ? 1 : game.playerHands.count)
+    func applyOutcome(outcome: GameOutcome, bet: Int) -> Int {
         switch outcome {
         case .playerBlackjack:
-            let winnings = Int(Double(currentBet) * 2.5)
-            let netGain = winnings - currentBet
+            let winnings = Int(Double(bet) * 2.5)
+            let netGain = winnings - bet
             playerChips += winnings
             return netGain
         case .playerWin:
-            let winnings = currentBet * 2
-            let netGain = currentBet
+            let winnings = bet * 2
+            let netGain = bet
             playerChips += winnings
             return netGain
         case .playerLose:
-            return -currentBet
+            return -bet
         case .push:
-            playerChips += currentBet
+            playerChips += bet
             return 0
         }
     }
