@@ -1,12 +1,3 @@
-//
-//  BlackjackGame.swift
-//  FinalProject_MobileApps
-//
-//  Created by Keaton Harvey on 12/15/24.
-//
-
-// TODO: this is where all game logic for the blackjack game will be. It should be able to be accessed by both practice and challenge view controllers
-
 import Foundation
 
 enum Suit: CaseIterable {
@@ -52,10 +43,6 @@ enum Rank: String, CaseIterable {
 struct Card {
     let suit: Suit
     let rank: Rank
-
-    func description() -> String {
-        return "\(rank.rawValue) of \(suit)"
-    }
 }
 
 class Deck {
@@ -77,10 +64,7 @@ class Deck {
     }
 
     func dealCard() -> Card? {
-        if cards.isEmpty {
-            return nil
-        }
-        return cards.removeLast()
+        return cards.isEmpty ? nil : cards.removeLast()
     }
 
     func resetAndShuffle(numberOfDecks: Int) {
@@ -99,6 +83,7 @@ class Deck {
 class Hand {
     private(set) var cards: [Card] = []
     var isInitialHand: Bool = false
+    var hasActed: Bool = false
 
     var isBusted: Bool {
         return total > 21
@@ -115,8 +100,6 @@ class Hand {
                 total += card.rank.value
             }
         }
-
-        // Adjust for aces if over 21
         while total > 21 && aces > 0 {
             total -= 10
             aces -= 1
@@ -125,9 +108,6 @@ class Hand {
     }
 
     var isSoft: Bool {
-        // A hand is soft if it has an ace counted as 11
-        // After adjustments, if we lowered aces, we can't be sure easily.
-        // Check if adding 10 doesn't bust, meaning we had an ace as 11.
         var total = 0
         var aces = 0
         for card in cards {
@@ -142,29 +122,20 @@ class Hand {
             total -= 10
             aces -= 1
         }
-        // If after this, aces > 0 means at least one ace is counting as 11
         return aces > 0
     }
 
     func addCard(_ card: Card) {
         cards.append(card)
     }
-    
-    func removeLastCard() -> Card? {
-            return cards.isEmpty ? nil : cards.removeLast()
-        }
 
-    func description() -> String {
-        return cards.map { "\($0.rank.rawValue) of \($0.suit)" }.joined(separator: ", ")
+    func removeLastCard() -> Card? {
+        return cards.isEmpty ? nil : cards.removeLast()
     }
 }
 
 enum GameOutcome {
     case playerWin, playerLose, push, playerBlackjack
-}
-
-enum Action {
-    case hit, stand, doubleDown, split
 }
 
 class BlackjackGame {
@@ -175,39 +146,39 @@ class BlackjackGame {
     let numberOfDecks: Int
     let dealerHitsSoft17: Int
 
-    // Track the current player hand if multiple due to split
     private var currentHandIndex = 0
     private var roundInProgress = false
+    private var hasSplit = false
 
     init(numberOfDecks: Int = 1, dealerHitsSoft17: Int = 0) {
         self.numberOfDecks = numberOfDecks
         self.dealerHitsSoft17 = dealerHitsSoft17
         self.deck = Deck(numberOfDecks: numberOfDecks)
-        startNewRound()
     }
 
     func startNewRound() {
         deck.resetAndShuffle(numberOfDecks: numberOfDecks)
         playerHands = [Hand()]
         playerHands[0].isInitialHand = true
+        playerHands[0].hasActed = false
         dealerHand = Hand()
         dealerHand.isInitialHand = true
+        dealerHand.hasActed = false
         currentHandIndex = 0
         roundInProgress = true
+        hasSplit = false
 
-        // Deal initial cards
-        if let card1 = deck.dealCard(), let dcard1 = deck.dealCard(),
-           let card2 = deck.dealCard(), let dcard2 = deck.dealCard() {
-            playerHands[0].addCard(card1)
-            dealerHand.addCard(dcard1)
-            playerHands[0].addCard(card2)
-            dealerHand.addCard(dcard2)
+        if let p1 = deck.dealCard(),
+           let d1 = deck.dealCard(),
+           let p2 = deck.dealCard(),
+           let d2 = deck.dealCard() {
+            playerHands[0].addCard(p1)
+            dealerHand.addCard(d1)
+            playerHands[0].addCard(p2)
+            dealerHand.addCard(d2)
         }
 
-        // Check for player blackjack or dealer blackjack
-        // If dealer or player has blackjack, we can end round immediately
         if isBlackjack(hand: playerHands[0]) || isBlackjack(hand: dealerHand) {
-            // Immediate outcome
             roundInProgress = false
         }
     }
@@ -217,7 +188,11 @@ class BlackjackGame {
     }
 
     private var currentPlayerHand: Hand {
-        return playerHands[currentHandIndex]
+        if currentHandIndex < playerHands.count {
+            return playerHands[currentHandIndex]
+        } else {
+            return playerHands.last!
+        }
     }
 
     func playerHit() {
@@ -225,34 +200,38 @@ class BlackjackGame {
         guard !currentPlayerHand.isBusted else { return }
 
         if let card = deck.dealCard() {
-            playerHands[currentHandIndex].addCard(card)
+            currentPlayerHand.addCard(card)
+            currentPlayerHand.hasActed = true
+            if currentPlayerHand.isBusted {
+                playerStand()
+            }
         }
     }
 
     func playerStand() {
         guard roundInProgress else { return }
 
-        // Move to next hand if split, else dealer plays
-        currentHandIndex += 1
-        if currentHandIndex >= playerHands.count {
-            // All player hands done, dealer plays
+        if currentHandIndex < playerHands.count - 1 {
+            currentHandIndex += 1
+        } else {
             dealerPlay()
             roundInProgress = false
         }
     }
 
     func playerDoubleDown() {
-        // Player doubles down: one extra card, then stand
         guard roundInProgress else { return }
-        // Just deal one card and then stand
+        guard currentHandCanDoubleDown() else { return }
+
         if let card = deck.dealCard() {
-            playerHands[currentHandIndex].addCard(card)
+            currentPlayerHand.addCard(card)
         }
-        // Move to next hand or dealer turn
+        currentPlayerHand.hasActed = true
         playerStand()
     }
 
     func playerCanSplit() -> Bool {
+        if hasSplit { return false }
         let hand = currentPlayerHand
         if hand.cards.count == 2 && hand.cards[0].rank.value == hand.cards[1].rank.value {
             return true
@@ -264,36 +243,32 @@ class BlackjackGame {
         guard roundInProgress else { return }
         guard playerCanSplit() else { return }
 
+        hasSplit = true
         let hand = currentPlayerHand
         guard let secondCard = hand.removeLastCard() else { return }
 
-        // New hand formed by splitting is not an initial hand
         let newHand = Hand()
         newHand.addCard(secondCard)
         newHand.isInitialHand = false
+        newHand.hasActed = false
 
-        // Current hand also loses its initial-hand status
-        // Once we split, the current hand is no longer the original 2-card deal
         playerHands[currentHandIndex].isInitialHand = false
+        playerHands[currentHandIndex].hasActed = false
 
         playerHands.insert(newHand, at: currentHandIndex+1)
 
-        // Deal new cards to each split hand
         if let newCardForFirstHand = deck.dealCard(), let newCardForSecondHand = deck.dealCard() {
             playerHands[currentHandIndex].addCard(newCardForFirstHand)
             playerHands[currentHandIndex+1].addCard(newCardForSecondHand)
-            // These hands now each have 2 cards but are not initial, so no blackjack possibility
         }
     }
 
     private func dealerPlay() {
-        // Dealer reveals hidden card and draws until rules are met
-        // Dealer must hit until total >=17, or if dealerHitsSoft17=true, dealer hits soft17
         while dealerShouldHit(dealerHand: dealerHand) {
             if let card = deck.dealCard() {
                 dealerHand.addCard(card)
             } else {
-                break // Deck ran out?
+                break
             }
         }
     }
@@ -308,7 +283,6 @@ class BlackjackGame {
         return false
     }
 
-    // Determine outcome for each player's hand after dealer finishes
     func outcomes() -> [GameOutcome] {
         var results: [GameOutcome] = []
         let dealerTotal = dealerHand.total
@@ -316,10 +290,8 @@ class BlackjackGame {
 
         for hand in playerHands {
             if isBlackjack(hand: hand) && !isBlackjack(hand: dealerHand) {
-                // Player blackjack vs non-blackjack dealer -> player wins
                 results.append(.playerBlackjack)
             } else if isBlackjack(hand: hand) && isBlackjack(hand: dealerHand) {
-                // Both blackjack -> push
                 results.append(.push)
             } else if hand.isBusted {
                 results.append(.playerLose)
@@ -342,5 +314,34 @@ class BlackjackGame {
 
     func roundFinished() -> Bool {
         return !roundInProgress
+    }
+
+    func currentHandCanDoubleDown() -> Bool {
+        return roundInProgress && !currentPlayerHand.hasActed && currentPlayerHand.cards.count == 2
+    }
+
+    func currentHandCanHit() -> Bool {
+        return roundInProgress && !currentPlayerHand.isBusted
+    }
+
+    func currentHandCanStand() -> Bool {
+        return roundInProgress
+    }
+
+    var playerTotal: Int {
+        return playerHands[currentHandIndex].total
+    }
+
+    var visibleDealerTotal: Int {
+        let dCards = dealerHand.cards
+        if dCards.count >= 2 {
+            let card = dCards[1]
+            return card.rank == .ace ? 11 : card.rank.value
+        }
+        return 0
+    }
+
+    var dealerTotal: Int {
+        return dealerHand.total
     }
 }
