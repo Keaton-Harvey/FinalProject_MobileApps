@@ -82,6 +82,16 @@ class AppEntryViewController: UIViewController {
         
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        totalChipsCounter.text = "Total chips: $\(Int(UserDefaults.standard.double(forKey: "chips")))"
+        
+    }
+
+    
+    
+    
     @IBOutlet weak var decks: UILabel!
     
     @IBOutlet weak var hitOrStandOutlet: UISwitch!
@@ -185,9 +195,14 @@ class AppEntryViewController: UIViewController {
             // Layout the labels inside the popup
             var yOffset: CGFloat = 50 // Start below the title label
             let labelHeight: CGFloat = 30
+            var i = 0
             for label in labels {
+    
                 label.frame = CGRect(x: 10, y: yOffset, width: popupWidth - 20, height: labelHeight)
-                label.textColor = .white
+                if i != 4 {
+                    label.textColor = .white
+                }
+                i += 1
                 popupView.addSubview(label)
                 yOffset += labelHeight + 10 // Add spacing between labels
             }
@@ -232,7 +247,11 @@ class AppEntryViewController: UIViewController {
             }
         
         // Assign the value to the label text
-        label.text = value
+        if value == defaultValue{
+            label.text = defaultValue
+        } else {
+            label.text = String(defaultValue.dropLast(4)) + value
+        }
         return label
     }
 
