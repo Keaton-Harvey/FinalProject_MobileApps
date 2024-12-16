@@ -53,6 +53,18 @@ class AppEntryViewController: UIViewController {
         decksStepper.value = amountOfDecks
         decks.text = "\(Int(amountOfDecks))"
         
+        if let backgroundImage = UIImage(named: "BlackJackTable") {
+                self.view.layer.contents = backgroundImage.cgImage
+                self.view.layer.contentsGravity = .resizeAspectFill // Adjust scaling (similar to contentMode)
+            }
+        
+        chip.image = UIImage(named: "chipforintro") // Replace with your asset name
+            chip.contentMode = .scaleAspectFill // Adjust content mode
+        
+
+        addShadowAndBorder(to: gameconfigView)
+        addShadowAndBorder(to: chipsView)
+        
         
         hitOrStandOutlet.isOn = false
         UserDefaults.standard.set(0.0, forKey: "hitOrStand")
@@ -61,7 +73,7 @@ class AppEntryViewController: UIViewController {
         
         if !isChipsDefined {
             // Set the default chips value to 2500
-            UserDefaults.standard.set(2500, forKey: "chips")
+            UserDefaults.standard.set(500, forKey: "chips")
         }
         
         // Retrieve the current chips value and display it
@@ -69,6 +81,7 @@ class AppEntryViewController: UIViewController {
         totalChipsCounter.text = "Total chips: $\(Int(savedChips))"
         
     }
+    
     @IBOutlet weak var decks: UILabel!
     
     @IBOutlet weak var hitOrStandOutlet: UISwitch!
@@ -92,90 +105,150 @@ class AppEntryViewController: UIViewController {
         amountOfDecks = sender.value
     }
     
+    @IBOutlet weak var gameconfigView: UIView!
+    
+    @IBOutlet weak var chipsView: UIView!
+    
+    @IBOutlet weak var chip: UIImageView!
+    
+    func addShadowAndBorder(to view: UIView,
+                            shadowColor: UIColor = .black,
+                            shadowOpacity: Float = 0.5,
+                            shadowOffset: CGSize = CGSize(width: 3, height: 3),
+                            shadowRadius: CGFloat = 4,
+                            borderColor: UIColor = .systemYellow,
+                            borderWidth: CGFloat = 2) {
+        // Add shadow
+        view.layer.shadowColor = shadowColor.cgColor
+        view.layer.shadowOpacity = shadowOpacity
+        view.layer.shadowOffset = shadowOffset
+        view.layer.shadowRadius = shadowRadius
+        view.layer.masksToBounds = false // Ensure shadow is visible outside the view
+
+        // Add border
+        view.layer.borderColor = borderColor.cgColor
+        view.layer.borderWidth = borderWidth
+    }
+    
+    
     
     @IBAction func statsButtonClicked(_ sender: Any) {
-        // Create a dimmed background view
-        let dimmedView = UIView(frame: self.view.bounds)
-                dimmedView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
-                dimmedView.tag = 999 // Assign a tag to identify and remove it later
-                self.view.addSubview(dimmedView)
-                self.dimmedView = dimmedView
+            // Create a dimmed background view
+            let dimmedView = UIView(frame: self.view.bounds)
+            dimmedView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+            dimmedView.tag = 999 // Assign a tag to identify and remove it later
+            self.view.addSubview(dimmedView)
+            self.dimmedView = dimmedView
 
-                // Create the popup view
-                let popupWidth: CGFloat = 300
-                let popupHeight: CGFloat = 280
-                let popupView = UIView(frame: CGRect(x: (self.view.frame.width - popupWidth) / 2,
-                                                     y: (self.view.frame.height - popupHeight) / 2,
-                                                     width: popupWidth,
-                                                     height: popupHeight))
-                popupView.backgroundColor = .white
-                popupView.layer.cornerRadius = 10
-                popupView.clipsToBounds = true
-                self.view.addSubview(popupView)
-                self.popupView = popupView
+            // Create the popup view
+            let popupWidth: CGFloat = 300
+            let popupHeight: CGFloat = 280
+            let popupView = UIView(frame: CGRect(x: (self.view.frame.width - popupWidth) / 2,
+                                                 y: (self.view.frame.height - popupHeight) / 2,
+                                                 width: popupWidth,
+                                                 height: popupHeight))
+            
+            // Add an UIImageView for the background
+            let popupBackgroundImageView = UIImageView(frame: CGRect(
+                x: -195, // Shift the image slightly to the left to center it
+                y: -195, // Shift the image slightly upward to center it
+                width: popupView.bounds.width + 400, // Increase width
+                height: popupView.bounds.height + 400 // Increase height
+                ))
+            popupBackgroundImageView.image = UIImage(named: "bluechip") // Replace with your image asset name
+            popupBackgroundImageView.contentMode = .scaleAspectFill // Adjust the scaling to fit the view
+            popupBackgroundImageView.clipsToBounds = false
+            popupView.addSubview(popupBackgroundImageView) // Add the image view first
+            
+            // Set up the popup view properties
+            popupView.layer.cornerRadius = 10
+            popupView.clipsToBounds = false
+            self.view.addSubview(popupView)
+            self.popupView = popupView
 
-                // Add the title label
-                let titleLabel = createTitleLabel(withText: "User Lifetime Stats")
-                titleLabel.frame = CGRect(x: 10, y: 10, width: popupWidth - 20, height: 30)
-                popupView.addSubview(titleLabel)
+            // Add the title label
+            let titleLabel = createTitleLabel(withText: "Statistics")
+            titleLabel.frame = CGRect(x: 10, y: 10, width: popupWidth - 20, height: 30)
+            popupView.addSubview(titleLabel)
 
-                // Add the stat labels with proper spacing
-                let labels = [
-                    createLabel(withText: "Win rate: 65%"),
-                    createLabel(withText: "Correct decision percentage: 80%"),
-                    createLabel(withText: "Average bet size: $50"),
-                    createLabel(withText: "Total money lost: $150", textColor: .red)
-                ]
+            // Add the stat labels with proper spacing
+        let labels = [
+            createLabel(forKey: "winRate", defaultValue: "Win rate: None"),
+            createLabel(forKey: "totalBlackJacks", defaultValue: "Total BlackJacks: None"),
+            createLabel(forKey: "decisionPercentage", defaultValue: "Correct decision percentage: None"),
+            createLabel(forKey: "averageBetSize", defaultValue: "Average bet size: None"),
+            createLabel(forKey: "totalMoney", defaultValue: "Total money lost/won: None"),
+            createLabel(forKey: "reloads", defaultValue: "Number of reloads: None")
+        ]
 
-                // Layout the labels inside the popup
-                var yOffset: CGFloat = 50 // Start below the title label
-                let labelHeight: CGFloat = 30
-                for label in labels {
-                    label.frame = CGRect(x: 10, y: yOffset, width: popupWidth - 20, height: labelHeight)
-                    popupView.addSubview(label)
-                    yOffset += labelHeight + 10 // Add spacing between labels
+            // Layout the labels inside the popup
+            var yOffset: CGFloat = 50 // Start below the title label
+            let labelHeight: CGFloat = 30
+            for label in labels {
+                label.frame = CGRect(x: 10, y: yOffset, width: popupWidth - 20, height: labelHeight)
+                popupView.addSubview(label)
+                yOffset += labelHeight + 10 // Add spacing between labels
+            }
+
+            // Add a close button to the popup
+            let closeButton = UIButton(frame: CGRect(x: popupWidth - 50, y: 10, width: 40, height: 40))
+            closeButton.setImage(UIImage(named: "Closebutton"), for: .normal) // Replace "closeIcon" with your asset name
+            closeButton.addTarget(self, action: #selector(dismissPopup), for: .touchUpInside)
+            popupView.addSubview(closeButton)
+
+        }
+
+        @objc func dismissPopup() {
+            // Remove the popup and dimmed background
+            popupView?.removeFromSuperview()
+            dimmedView?.removeFromSuperview()
+        }
+    
+    private func createLabel(forKey key: String, defaultValue: String, textColor: UIColor = .black) -> UILabel {
+        let label = UILabel()
+        label.textAlignment = .center
+        label.font = UIFont.systemFont(ofSize: 14)
+        label.textColor = textColor
+        
+        // Retrieve the value from UserDefaults
+        let value = UserDefaults.standard.string(forKey: key) ?? defaultValue
+        
+        // Check if this is the "totalMoney" key to dynamically adjust the text color
+        if key == "totalMoney" {
+                // Extract the numerical value for money
+                if let moneyString = UserDefaults.standard.string(forKey: key),
+                   let money = Double(moneyString.replacingOccurrences(of: "$", with: "")) {
+                    if money < 0 {
+                        label.text = "Total money lost: $\(abs(money))"
+                        label.textColor = .red // Red for negative values
+                    } else {
+                        label.text = "Total money won: $\(money)"
+                        label.textColor = .green // Green for positive values
+                    }
+                    return label
                 }
-
-                // Add a close button to the popup
-                let closeButton = UIButton(frame: CGRect(x: popupWidth - 40, y: 10, width: 30, height: 30))
-                closeButton.setTitle("X", for: .normal)
-                closeButton.setTitleColor(.black, for: .normal)
-                closeButton.addTarget(self, action: #selector(dismissPopup), for: .touchUpInside)
-                popupView.addSubview(closeButton)
             }
+        
+        // Assign the value to the label text
+        label.text = value
+        return label
+    }
 
-            @objc func dismissPopup() {
-                // Remove the popup and dimmed background
-                popupView?.removeFromSuperview()
-                dimmedView?.removeFromSuperview()
-            }
-
-            private func createLabel(withText text: String, textColor: UIColor = .black) -> UILabel {
-                let label = UILabel()
-                label.text = text
-                label.textColor = textColor
-                label.textAlignment = .center
-                label.font = UIFont.systemFont(ofSize: 14)
-                return label
-            }
-
-            private func createTitleLabel(withText text: String) -> UILabel {
-                let label = UILabel()
-                label.text = text
-                label.textColor = .black
-                label.textAlignment = .center
-                label.font = UIFont.boldSystemFont(ofSize: 18) // Larger, bold font
-                label.attributedText = NSAttributedString(
-                    string: text,
-                    attributes: [
-                        .font: UIFont.boldSystemFont(ofSize: 18),
-                        .underlineStyle: NSUnderlineStyle.single.rawValue
-                    ]
-                )
-                return label
-            }
-    
-    
+              private func createTitleLabel(withText text: String) -> UILabel {
+                  let label = UILabel()
+                  label.text = text
+                  label.textColor = .black
+                  label.textAlignment = .center
+                  label.font = UIFont.boldSystemFont(ofSize: 18) // Larger, bold font
+                  label.attributedText = NSAttributedString(
+                      string: text,
+                      attributes: [
+                          .font: UIFont.boldSystemFont(ofSize: 18),
+                          .underlineStyle: NSUnderlineStyle.single.rawValue
+                      ]
+                  )
+                  return label
+              }
 
     
     
